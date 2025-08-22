@@ -1,8 +1,8 @@
-<div dir="rtl">
+<div dir="rtl" lang="fa">
 
 # پروژهٔ کامپایلر دانشگاه (JFlex + CUP)
 
-این مخزن شامل پیاده‌سازی فازهای کامپایلر (لغوی، نحوی و لایهٔ سِمانتیک سبک) با **JFlex** و **Java CUP** است.  
+این مخزن شامل پیاده‌سازی فازهای کامپایلر (لغوی، نحوی و لایهٔ سِمانتیک سبک) با <strong>JFlex</strong> و <strong>Java CUP</strong> است.  
 محیط هدف: ویندوز (سازگار با لینوکس/مک).
 
 ## ساختار پوشه‌ها
@@ -15,32 +15,45 @@
 ```
 
 ## امکانات و وضعیت فعلی (فاز ۲)
-- **Lexer/Parser** با **JFlex** و **Java CUP** پیاده‌سازی شده‌اند.
-- **چاپ استاندارد خروجی‌ها** (طبق قالب توافق‌شده):
-  - `VAR ...`
-  - `EXPR ...`
-  - `STRUCT IF/ELSE/WHILE/FOR`
-  - `FUNC ...`
-  - `CLASS ...`
-  - `CALL ...`
-- **لایهٔ سِمانتیک سبک**:
-  - جدول نمادها (VAR/FUNC/CLASS) با اسکوپ.
-  - ثبت امضای تایپ‌دار توابع و **چک تعداد/نوع آرگومان‌ها**.
-  - پذیرش `true/false` و همچنین **۰/۱ (و 0.0/1.0)** برای پارامترهای بولی.
-  - جلوگیری از نام‌های تکراری (var/func/class/param).
-  - پیام‌های خطا: `duplicate`، `unknown function`، `type-mismatch`، `bad-args`.
-- **AST کامل** (Program/Block/VarDecl/Assign/ExprStmt/Return/If/While/For/FuncDecl/ClassDecl و Exprها) و چاپ با `ASTPrinter`.
-- **رشته‌ها** در اسکنر **unescape** می‌شوند و چاپ امن با `Sem.quote` انجام می‌شود.
+<ul dir="rtl">
+  <li><strong>Lexer/Parser</strong> با <strong>JFlex</strong> و <strong>Java CUP</strong> پیاده‌سازی شده‌اند.</li>
+  <li><strong>چاپ استاندارد خروجی‌ها</strong> (طبق قالب توافق‌شده):</li>
+</ul>
+<ul dir="rtl">
+  <li><code>VAR ...</code></li>
+  <li><code>EXPR ...</code></li>
+  <li><code>STRUCT IF/ELSE/WHILE/FOR</code></li>
+  <li><code>FUNC ...</code></li>
+  <li><code>CLASS ...</code></li>
+  <li><code>CALL ...</code></li>
+</ul>
+<ul dir="rtl">
+  <li><strong>لایهٔ سِمانتیک سبک</strong>:
+    <ul dir="rtl">
+      <li>جدول نمادها (VAR/FUNC/CLASS) با اسکوپ.</li>
+      <li>ثبت امضای تایپ‌دار توابع و <strong>چک تعداد/نوع آرگومان‌ها</strong>.</li>
+      <li>پذیرش <code>true/false</code> و همچنین <strong>۰/۱ (و 0.0/1.0)</strong> برای پارامترهای بولی.</li>
+      <li>جلوگیری از نام‌های تکراری (var/func/class/param).</li>
+      <li>پیام‌های خطا: <code>duplicate</code>، <code>unknown function</code>، <code>type-mismatch</code>، <code>bad-args</code>.</li>
+    </ul>
+  </li>
+  <li><strong>AST کامل</strong> (Program/Block/VarDecl/Assign/ExprStmt/Return/If/While/For/FuncDecl/ClassDecl و Exprها) و چاپ با <code>ASTPrinter</code>.</li>
+  <li><strong>رشته‌ها</strong> در اسکنر <em>unescape</em> می‌شوند و چاپ امن با <code>Sem.quote</code> انجام می‌شود.</li>
+</ul>
 
-> **یادداشت:** پشتیبانی `char` و `double` در برخی مسیرها در حال تکمیل است (بخش «نقشهٔ راه» را ببینید). همچنین چاپ مقدار اولیهٔ `bool` در اعلان متغیرها در نسخهٔ بعدی به فرم `true/false` اصلاح می‌شود.
+<blockquote>
+<p><strong>یادداشت:</strong> پشتیبانی <code>char</code> و <code>double</code> در برخی مسیرها در حال تکمیل است (بخش «نقشهٔ راه»). همچنین چاپ مقدار اولیهٔ <code>bool</code> در اعلان متغیرها در نسخهٔ بعدی به فرم <code>true/false</code> اصلاح می‌شود.</p>
+</blockquote>
 
 ## پیش‌نیازها
-- Java JDK 8 یا بالاتر  
-- JFlex 1.8.x  
-- Java CUP 11b (یا سازگار) + CUP Runtime (`java-cup-11b-runtime.jar`)
+<ul dir="rtl">
+  <li>Java JDK 8 یا بالاتر</li>
+  <li>JFlex 1.8.x</li>
+  <li>Java CUP 11b (یا سازگار) + CUP Runtime (<code>java-cup-11b-runtime.jar</code>)</li>
+</ul>
 
 ## ساخت (Build)
-> برای جلوگیری از به‌هم‌ریختگی دستورات، **بلاک‌های کد زیر چپ‌به‌راست** نمایش داده می‌شوند، اما کل سند راست‌به‌چپ است.
+<em>برای جلوگیری از به‌هم‌ریختگی دستورات، بلاک‌های کد زیر چپ‌به‌راست نمایش داده می‌شوند، اما کل سند راست‌به‌چپ است.</em>
 
 <div dir="ltr">
 
@@ -84,7 +97,8 @@ java -cp .:java-cup-11b-runtime.jar Main samples/input.txt
 </div>
 
 ## نمونهٔ ورودی (samples)
-می‌توانید فایل‌های تست خود را در `samples/` قرار دهید. مثال ساده:
+<p>می‌توانید فایل‌های تست خود را در <code>samples/</code> قرار دهید. مثال ساده:</p>
+
 ```
 FUNC int demo(int n)
 IF (n) { 1; } ELSE { 2; }
@@ -93,25 +107,32 @@ FOR (int i = 0; i < 2; i = i + 1) { 4; }
 CALL demo(5);
 0;
 ```
-خروجی استاندارد (تقریبی) انتظار می‌رود شامل خطوطی از جنس `EXPR ...`، `STRUCT ...`، `FUNC ...`، `CALL ...` و در نهایت چاپ AST باشد.
+
+<p>خروجی استاندارد (تقریبی) انتظار می‌رود شامل خطوطی از جنس <code>EXPR ...</code>، <code>STRUCT ...</code>، <code>FUNC ...</code>، <code>CALL ...</code> و در نهایت چاپ AST باشد.</p>
 
 ## نکات توسعه (برای هم‌تیمی‌ها)
-- Start symbol و **برچسب‌گذاری production**‌ها در CUP رعایت شده تا از ارورهای `$1/$2` جلوگیری شود.
-- الگوی رفع **dangling-else** با جداسازی `stmt` و `stmt_nse` استفاده شده است.
-- هنگام ورود/خروج بلاک، اسکوپ‌ها در `Sem` (push/pop) مدیریت می‌شود.
-- پارامترهای تابع ابتدا به‌صورت pending ثبت و در ابتدای بلاک تابع تزریق می‌شوند.
-- `Main` فقط **یک‌بار** `parse()` را اجرا می‌کند و AST را از `parse().value` می‌گیرد.
+<ul dir="rtl">
+  <li>Start symbol و <strong>برچسب‌گذاری production</strong>‌ها در CUP رعایت شده تا از ارورهای <code>$1/$2</code> جلوگیری شود.</li>
+  <li>الگوی رفع <strong>dangling-else</strong> با جداسازی <code>stmt</code> و <code>stmt_nse</code> استفاده شده است.</li>
+  <li>هنگام ورود/خروج بلاک، اسکوپ‌ها در <code>Sem</code> (push/pop) مدیریت می‌شود.</li>
+  <li>پارامترهای تابع ابتدا به‌صورت pending ثبت و در ابتدای بلاک تابع تزریق می‌شوند.</li>
+  <li><code>Main</code> فقط <strong>یک‌بار</strong> <code>parse()</code> را اجرا می‌کند و AST را از <code>parse().value</code> می‌گیرد.</li>
+</ul>
 
 ## نقشهٔ راه (Roadmap)
-- تکمیل سرتاسری `char` و `double` (lexer/parser/semantics/چاپ).
-- چاپ مقدار اولیهٔ `bool` در اعلان متغیرها به‌شکل `true/false`.
-- تعیین نوع بازگشتی تابع برای همهٔ انواع (نه فقط `int`).
+<ul dir="rtl">
+  <li>تکمیل سرتاسری <code>char</code> و <code>double</code> (lexer/parser/semantics/چاپ).</li>
+  <li>چاپ مقدار اولیهٔ <code>bool</code> در اعلان متغیرها به‌شکل <code>true/false</code>.</li>
+  <li>تعیین نوع بازگشتی تابع برای همهٔ انواع (نه فقط <code>int</code>).</li>
+</ul>
 
 ## لایسنس
-MIT (می‌توانید فایل `LICENSE` را نگه دارید/تغییر دهید).
+<ul dir="rtl">
+  <li>MIT (می‌توانید فایل <code>LICENSE</code> را نگه دارید/تغییر دهید).</li>
+</ul>
 
----
+<hr/>
 
-> هرگونه باگ/پیشنهاد را در Issues ثبت کنید. برای Pull Request، لطفاً یک یا چند تست در `samples/` اضافه کنید.
+<p>هرگونه باگ/پیشنهاد را در Issues ثبت کنید. برای Pull Request، لطفاً یک یا چند تست در <code>samples/</code> اضافه کنید.</p>
 
 </div>
