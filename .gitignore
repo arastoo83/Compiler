@@ -1,0 +1,25 @@
+# Java build outputs
+*.class
+target/
+bin/
+out/
+dist/
+
+# IDEs
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+.DS_Store
+
+# CUP/JFlex generated (common names; adjust if you version-control them)
+parser.java
+sym.java
+Lexer.java
+
+# Logs
+*.log
+.gradle/
+build/

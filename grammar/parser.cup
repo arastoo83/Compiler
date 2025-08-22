@@ -1,0 +1,532 @@
+import java_cup.runtime.*;
+import java.util.*;
+
+/* ====== AST خروجی پارسر ====== */
+parser code {:
+  public AST.Program astRoot;
+:};
+
+/* کمک‌ها و کلاس‌های کمکی */
+action code {:
+  @SuppressWarnings("unchecked")
+  private static java.util.ArrayList listOf(Object x){
+    java.util.ArrayList a = new java.util.ArrayList();
+    a.add(x); return a;
+  }
+  /* هدر تابع برای چاپ زودهنگام FUNC و حمل اطلاعات تا بدنه */
+  public static final class FuncHead {
+    public final String retName; public final Sem.Type retType;
+    public final String name; public final java.util.List<AST.Param> params;
+    public FuncHead(String rn, Sem.Type rt, String n, java.util.List<AST.Param> ps){
+      retName=rn; retType=rt; name=n; params=ps;
+    }
+  }
+:};
+
+/* ===== Terminals (هماهنگ با Lexer) ===== */
+terminal
+  ID, INT_LIT, FLOAT_LIT, SCI_LIT, HEX_LIT, BIN_LIT, OCT_LIT, STRING_LIT, CHAR_LIT, BOOL_LIT,
+  INT_KW, FLOAT_KW, DOUBLE_KW, CHAR_KW, BOOL_KW, STRING_KW,
+  IF, ELSE, SWITCH, CASE, FOR, WHILE, DO, BREAK, CONTINUE, RETURN, DEFAULT,
+  CLASS, PUBLIC, PRIVATE, PROTECTED, TEMPLATE, STATIC, CONST,
+  PP_DIRECTIVE,
+  INC, DEC, PLUS, MINUS, STAR, SLASH, PERCENT,
+  EQ, NE, LE, GE, LT, GT, GE_ALT, LE_ALT, NE_ALT,
+  AND, OR, NOT,
+  LSHIFT, RSHIFT, BIT_NOT, BIT_XOR, BIT_OR, BIT_AND,
+  PLUS_EQ, MINUS_EQ, STAR_EQ, SLASH_EQ, PERCENT_EQ, ASSIGN,
+  LPAR, RPAR, LBRACE, RBRACE, LBRACK, RBRACK, SEMI, COMMA, COLON
+;
+
+/* ===== Nonterminals (نوع‌دهی‌شده) ===== */
+non terminal AST.Program prog;
+non terminal java.util.List stmt_list;
+non terminal AST.Stmt stmt, stmt_nse, block;
+non terminal AST.Stmt for_init_opt, for_post_opt;
+non terminal Sem.Eval for_cond_opt;
+
+non terminal Sem.ParamSig param, param_list;
+non terminal Sem.ArgSig  arg_list_info;
+
+non terminal Sem.Eval expr, assignment, or_expr, and_expr, rel_expr, add_expr, mul_expr, unary, factor;
+non terminal FuncHead func_header;
+
+start with prog;
+
+/* ===== Program ===== */
+prog ::= stmt_list:sl
+       {: RESULT = new AST.Program(sl); :}
+       ;
+
+/* ===== Statement list ===== */
+stmt_list ::= stmt_list:sl stmt:s   {: sl.add(s); RESULT = sl; :}
+            | stmt:s                {: RESULT = listOf(s); :}
+;
+
+/* ===== Statements (حل کامل dangling-else) ===== */
+stmt ::=
+    stmt_nse:s                          {: RESULT = s; :}
+  | IF LPAR expr:e RPAR stmt:t          {: System.out.println("STRUCT IF"); RESULT = new AST.If(e.aexpr, t, null); :}
+  | IF LPAR expr:e RPAR stmt_nse:t ELSE stmt:el
+                                        {: System.out.println("STRUCT IF/ELSE"); RESULT = new AST.If(e.aexpr, t, el); :}
+;
+
+/* ===== Non-simple statements ===== */
+stmt_nse ::=
+    /* ---- var decls ---- */
+    INT_KW ID:id ASSIGN expr:e SEMI {:
+      String name=(String)id;
+      boolean ok = Sem.declareVar(name, Sem.Type.INT);
+      if (!ok) System.out.println("ERROR duplicate var: " + name);
+      double v = e.val.doubleValue();
+      System.out.println("VAR int " + name + " = " + ((Math.rint(v)==v)?Long.toString((long)Math.rint(v)):Double.toString(v)));
+      RESULT = new AST.VarDecl("int", name, e.aexpr);
+    :}
+  | INT_KW ID:id SEMI {:
+      String name=(String)id;
+      if (!Sem.declareVar(name, Sem.Type.INT))
+          System.out.println("ERROR duplicate var: " + name);
+      else System.out.println("VAR int " + name);
+      RESULT = new AST.VarDecl("int", name, null);
+    :}
+
+  | FLOAT_KW ID:id ASSIGN expr:e SEMI {:
+      String name=(String)id;
+      boolean ok = Sem.declareVar(name, Sem.Type.FLOAT);
+      if (!ok) System.out.println("ERROR duplicate var: " + name);
+      System.out.println("VAR float " + name + " = " + e.val);
+      RESULT = new AST.VarDecl("float", name, e.aexpr);
+    :}
+  | FLOAT_KW ID:id SEMI {:
+      String name=(String)id;
+      if (!Sem.declareVar(name, Sem.Type.FLOAT))
+          System.out.println("ERROR duplicate var: " + name);
+      else System.out.println("VAR float " + name);
+      RESULT = new AST.VarDecl("float", name, null);
+    :}
+
+  | DOUBLE_KW ID:id ASSIGN expr:e SEMI {:
+      String name=(String)id;
+      boolean ok = Sem.declareVar(name, Sem.Type.DOUBLE);
+      if (!ok) System.out.println("ERROR duplicate var: " + name);
+      System.out.println("VAR double " + name + " = " + e.val);
+      RESULT = new AST.VarDecl("double", name, e.aexpr);
+    :}
+  | DOUBLE_KW ID:id SEMI {:
+      String name=(String)id;
+      if (!Sem.declareVar(name, Sem.Type.DOUBLE))
+          System.out.println("ERROR duplicate var: " + name);
+      else System.out.println("VAR double " + name);
+      RESULT = new AST.VarDecl("double", name, null);
+    :}
+
+  | BOOL_KW ID:id ASSIGN expr:e SEMI {:
+      String name=(String)id;
+      boolean ok = Sem.declareVar(name, Sem.Type.BOOL);
+      if (!ok) System.out.println("ERROR duplicate var: " + name);
+      String s = (e.val.doubleValue()!=0.0) ? "true" : "false";
+      System.out.println("VAR bool " + name + " = " + s);
+      RESULT = new AST.VarDecl("bool", name, e.aexpr);
+    :}
+  | BOOL_KW ID:id SEMI {:
+      String name=(String)id;
+      if (!Sem.declareVar(name, Sem.Type.BOOL))
+          System.out.println("ERROR duplicate var: " + name);
+      else System.out.println("VAR bool " + name);
+      RESULT = new AST.VarDecl("bool", name, null);
+    :}
+
+  | CHAR_KW ID:id ASSIGN expr:e SEMI {:
+      String name=(String)id;
+      boolean ok = Sem.declareVar(name, Sem.Type.CHAR);
+      if (!ok) System.out.println("ERROR duplicate var: " + name);
+      char ch = (char)Math.round(e.val.doubleValue());
+      System.out.println("VAR char " + name + " = " + Sem.quoteChar(ch));
+      RESULT = new AST.VarDecl("char", name, e.aexpr);
+    :}
+  | CHAR_KW ID:id SEMI {:
+      String name=(String)id;
+      if (!Sem.declareVar(name, Sem.Type.CHAR))
+          System.out.println("ERROR duplicate var: " + name);
+      else System.out.println("VAR char " + name);
+      RESULT = new AST.VarDecl("char", name, null);
+    :}
+
+  | STRING_KW ID:id ASSIGN expr:e SEMI {:
+      String name=(String)id;
+      boolean ok = Sem.declareVar(name, Sem.Type.STRING);
+      if (!ok) {
+        System.out.println("ERROR duplicate var: " + name);
+      } else {
+        if (e.type == Sem.Type.STRING)
+          System.out.println("VAR string " + name + " = " + Sem.quote(e.sval));
+        else
+          System.out.println("VAR string " + name);
+      }
+      RESULT = new AST.VarDecl("string", name, e.aexpr);
+    :}
+  | STRING_KW ID:id SEMI {:
+      String name=(String)id;
+      if (!Sem.declareVar(name, Sem.Type.STRING))
+          System.out.println("ERROR duplicate var: " + name);
+      else System.out.println("VAR string " + name);
+      RESULT = new AST.VarDecl("string", name, null);
+    :}
+
+    /* ---- تابع: هدر + بدنه (چاپ FUNC قبل از بدنه) ---- */
+  | func_header:h block:b {:
+      RESULT = new AST.FuncDecl(h.retName, h.name, h.params, (AST.Block)b);
+    :}
+
+    /* ---- statement expression (با فیلتر چاپ EXPR برای انتساب) ---- */
+  | expr:e SEMI {:
+      if (!(e.aexpr instanceof AST.AssignExpr)) {
+        double v = e.val.doubleValue();
+        System.out.println("EXPR " + ((Math.rint(v)==v)?Long.toString((long)Math.rint(v)):Double.toString(v)));
+      }
+      RESULT = new AST.ExprStmt(e.aexpr);
+    :}
+
+    /* ---- return ---- */
+  | RETURN expr:e SEMI {: RESULT = new AST.ReturnStmt(e.aexpr); :}
+  | RETURN SEMI        {: RESULT = new AST.ReturnStmt(null); :}
+
+    /* ---- block ---- */
+  | block:b            {: RESULT = b; :}
+
+    /* ---- loops ---- */
+  | WHILE LPAR expr:e RPAR stmt_nse:s {:
+      System.out.println("STRUCT WHILE");
+      RESULT = new AST.While(e.aexpr, s);
+    :}
+  | FOR LPAR for_init_opt:i SEMI for_cond_opt:c SEMI for_post_opt:p RPAR stmt_nse:s {:
+      System.out.println("STRUCT FOR");
+      RESULT = new AST.For(i, (c==null?null:c.aexpr), p, s);
+    :}
+
+    /* ---- class ---- */
+  | CLASS ID:n block:b {:
+      String cn=(String)n;
+      boolean ok = Sem.ST.declare(cn, Sem.Kind.CLASS);
+      if (!ok) System.out.println("ERROR duplicate class: " + cn);
+      else System.out.println("CLASS " + cn);
+      RESULT = new AST.ClassDecl(cn, (AST.Block)b);
+    :}
+;
+
+/* ===== func_header: چاپ FUNC و ثبت امضا قبل از بدنه ===== */
+func_header ::=
+    INT_KW    ID:name LPAR RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.INT,    java.util.Collections.<Sem.Type>emptyList());
+      System.out.println("FUNC int " + nm + "()");
+      RESULT = new FuncHead("int", Sem.Type.INT, nm, java.util.Collections.<AST.Param>emptyList());
+    :}
+  | FLOAT_KW  ID:name LPAR RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.FLOAT,  java.util.Collections.<Sem.Type>emptyList());
+      System.out.println("FUNC float " + nm + "()");
+      RESULT = new FuncHead("float", Sem.Type.FLOAT, nm, java.util.Collections.<AST.Param>emptyList());
+    :}
+  | DOUBLE_KW ID:name LPAR RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.DOUBLE, java.util.Collections.<Sem.Type>emptyList());
+      System.out.println("FUNC double " + nm + "()");
+      RESULT = new FuncHead("double", Sem.Type.DOUBLE, nm, java.util.Collections.<AST.Param>emptyList());
+    :}
+  | CHAR_KW   ID:name LPAR RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.CHAR,   java.util.Collections.<Sem.Type>emptyList());
+      System.out.println("FUNC char " + nm + "()");
+      RESULT = new FuncHead("char", Sem.Type.CHAR, nm, java.util.Collections.<AST.Param>emptyList());
+    :}
+  | BOOL_KW   ID:name LPAR RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.BOOL,   java.util.Collections.<Sem.Type>emptyList());
+      System.out.println("FUNC bool " + nm + "()");
+      RESULT = new FuncHead("bool", Sem.Type.BOOL, nm, java.util.Collections.<AST.Param>emptyList());
+    :}
+  | STRING_KW ID:name LPAR RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.STRING, java.util.Collections.<Sem.Type>emptyList());
+      System.out.println("FUNC string " + nm + "()");
+      RESULT = new FuncHead("string", Sem.Type.STRING, nm, java.util.Collections.<AST.Param>emptyList());
+    :}
+
+  | INT_KW    ID:name LPAR param_list:ps RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.INT, ps.types);
+      System.out.println("FUNC int " + nm + "(" + ps.text + ")");
+      RESULT = new FuncHead("int", Sem.Type.INT, nm, ((Sem.ParamSig)ps).params);
+    :}
+  | FLOAT_KW  ID:name LPAR param_list:ps RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.FLOAT, ps.types);
+      System.out.println("FUNC float " + nm + "(" + ps.text + ")");
+      RESULT = new FuncHead("float", Sem.Type.FLOAT, nm, ((Sem.ParamSig)ps).params);
+    :}
+  | DOUBLE_KW ID:name LPAR param_list:ps RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.DOUBLE, ps.types);
+      System.out.println("FUNC double " + nm + "(" + ps.text + ")");
+      RESULT = new FuncHead("double", Sem.Type.DOUBLE, nm, ((Sem.ParamSig)ps).params);
+    :}
+  | CHAR_KW   ID:name LPAR param_list:ps RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.CHAR, ps.types);
+      System.out.println("FUNC char " + nm + "(" + ps.text + ")");
+      RESULT = new FuncHead("char", Sem.Type.CHAR, nm, ((Sem.ParamSig)ps).params);
+    :}
+  | BOOL_KW   ID:name LPAR param_list:ps RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.BOOL, ps.types);
+      System.out.println("FUNC bool " + nm + "(" + ps.text + ")");
+      RESULT = new FuncHead("bool", Sem.Type.BOOL, nm, ((Sem.ParamSig)ps).params);
+    :}
+  | STRING_KW ID:name LPAR param_list:ps RPAR {:
+      String nm=(String)name; boolean ok = Sem.ST.declare(nm, Sem.Kind.FUNC);
+      if (!ok) System.out.println("ERROR duplicate function: " + nm);
+      Sem.recordFunction(nm, Sem.Type.STRING, ps.types);
+      System.out.println("FUNC string " + nm + "(" + ps.text + ")");
+      RESULT = new FuncHead("string", Sem.Type.STRING, nm, ((Sem.ParamSig)ps).params);
+    :}
+;
+
+/* ===== block (scope + AST) ===== */
+block ::= LBRACE
+            {: Sem.pushScope(); Sem.injectParamsIntoCurrentScope(); :}
+          stmt_list:sl
+          RBRACE
+            {: Sem.popScope(); RESULT = new AST.Block(sl); :}
+;
+
+/* ===== for header pieces =====
+   نکته: assignment جداگانه‌ای اینجا نداریم؛ چون در expr پوشش داده می‌شود. */
+for_init_opt ::= INT_KW ID:n               {: RESULT = new AST.VarDecl("int", (String)n, null); :}
+               | INT_KW ID:n ASSIGN expr:e {: RESULT = new AST.VarDecl("int", (String)n, e.aexpr); :}
+               | expr:e                    {: RESULT = new AST.ExprStmt(e.aexpr); :}
+               | /* empty */               {: RESULT = null; :}
+               ;
+
+for_cond_opt ::= expr:e                    {: RESULT = e; :}
+               | /* empty */               {: RESULT = null; :}
+               ;
+
+for_post_opt ::= expr:e                    {: RESULT = new AST.ExprStmt(e.aexpr); :}
+               | /* empty */               {: RESULT = null; :}
+               ;
+
+/* ===== params ===== */
+param_list ::=
+    param:p                           {: RESULT = p; :}
+  | param_list:pl COMMA param:p       {:
+        java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>(pl.types);
+        ts.addAll(p.types);
+        java.util.ArrayList<AST.Param> ps = new java.util.ArrayList<>(((Sem.ParamSig)pl).params);
+        ps.addAll(((Sem.ParamSig)p).params);
+        RESULT = new Sem.ParamSig(pl.text + ", " + p.text, pl.count + p.count, ts, ps);
+    :}
+;
+
+param ::= INT_KW ID:n {:
+          String nn=(String)n;
+          Sem.addPendingParam(nn, Sem.Type.INT);
+          java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>();
+          ts.add(Sem.Type.INT);
+          java.util.ArrayList<AST.Param> ps = new java.util.ArrayList<>();
+          ps.add(new AST.Param("int", nn));
+          RESULT = new Sem.ParamSig("int " + nn, 1, ts, ps);
+        :}
+      | FLOAT_KW ID:n {:
+          String nn=(String)n;
+          Sem.addPendingParam(nn, Sem.Type.FLOAT);
+          java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>();
+          ts.add(Sem.Type.FLOAT);
+          java.util.ArrayList<AST.Param> ps = new java.util.ArrayList<>();
+          ps.add(new AST.Param("float", nn));
+          RESULT = new Sem.ParamSig("float " + nn, 1, ts, ps);
+        :}
+      | DOUBLE_KW ID:n {:
+          String nn=(String)n;
+          Sem.addPendingParam(nn, Sem.Type.DOUBLE);
+          java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>();
+          ts.add(Sem.Type.DOUBLE);
+          java.util.ArrayList<AST.Param> ps = new java.util.ArrayList<>();
+          ps.add(new AST.Param("double", nn));
+          RESULT = new Sem.ParamSig("double " + nn, 1, ts, ps);
+        :}
+      | CHAR_KW ID:n {:
+          String nn=(String)n;
+          Sem.addPendingParam(nn, Sem.Type.CHAR);
+          java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>();
+          ts.add(Sem.Type.CHAR);
+          java.util.ArrayList<AST.Param> ps = new java.util.ArrayList<>();
+          ps.add(new AST.Param("char", nn));
+          RESULT = new Sem.ParamSig("char " + nn, 1, ts, ps);
+        :}
+      | BOOL_KW ID:n {:
+          String nn=(String)n;
+          Sem.addPendingParam(nn, Sem.Type.BOOL);
+          java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>();
+          ts.add(Sem.Type.BOOL);
+          java.util.ArrayList<AST.Param> ps = new java.util.ArrayList<>();
+          ps.add(new AST.Param("bool", nn));
+          RESULT = new Sem.ParamSig("bool " + nn, 1, ts, ps);
+        :}
+      | STRING_KW ID:n {:
+          String nn=(String)n;
+          Sem.addPendingParam(nn, Sem.Type.STRING);
+          java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>();
+          ts.add(Sem.Type.STRING);
+          java.util.ArrayList<AST.Param> ps = new java.util.ArrayList<>();
+          ps.add(new AST.Param("string", nn));
+          RESULT = new Sem.ParamSig("string " + nn, 1, ts, ps);
+        :}
+;
+
+/* ===== args: text + types + vals + AST exprs ===== */
+arg_list_info ::=
+    expr:e {:
+      String s;
+      if (e.type == Sem.Type.STRING) s = Sem.quote(e.sval);
+      else if (e.type == Sem.Type.BOOL) s = (e.val.doubleValue()!=0.0) ? "true" : "false";
+      else {
+         double v = e.val.doubleValue();
+         s = (Math.rint(v)==v)? Long.toString((long)Math.rint(v)) : Double.toString(v);
+      }
+      java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>();
+      java.util.ArrayList<Double>   vs = new java.util.ArrayList<>();
+      java.util.ArrayList<AST.Expr> es = new java.util.ArrayList<>();
+      ts.add(e.type);  vs.add(e.val);   es.add(e.aexpr);
+      RESULT = new Sem.ArgSig(s, 1, ts, vs, es);
+    :}
+  | arg_list_info:al COMMA expr:e {:
+      String s;
+      if (e.type == Sem.Type.STRING) s = Sem.quote(e.sval);
+      else if (e.type == Sem.Type.BOOL) s = (e.val.doubleValue()!=0.0) ? "true" : "false";
+      else {
+         double v = e.val.doubleValue();
+         s = (Math.rint(v)==v)? Long.toString((long)Math.rint(v)) : Double.toString(v);
+      }
+      java.util.ArrayList<Sem.Type> ts = new java.util.ArrayList<>(al.types);
+      java.util.ArrayList<Double>   vs = new java.util.ArrayList<>(al.vals);
+      java.util.ArrayList<AST.Expr> es = new java.util.ArrayList<>(al.aexprs);
+      ts.add(e.type);  vs.add(e.val);   es.add(e.aexpr);
+      RESULT = new Sem.ArgSig(al.text + ", " + s, al.count + 1, ts, vs, es);
+    :}
+;
+
+/* ===== Expressions (typed + AST) ===== */
+/* نکتهٔ کلیدی: «انتساب» اینجاست تا تعارض با stmt از بین بره */
+expr        ::= assignment:x           {: RESULT = x; :}
+;
+
+assignment  ::= ID:n ASSIGN assignment:r {:
+                  String nm=(String)n;
+                  RESULT = new Sem.Eval(r.val, r.type, null, new AST.AssignExpr(nm, r.aexpr));
+                :}
+             | or_expr:x               {: RESULT = x; :}
+             ;
+
+or_expr     ::= or_expr:a OR and_expr:b   {:
+                   boolean res = (a.val.doubleValue()!=0.0 || b.val.doubleValue()!=0.0);
+                   RESULT = new Sem.Eval(res?1.0:0.0, Sem.Type.BOOL, null, new AST.Binary("||", a.aexpr, b.aexpr));
+                 :}
+             |  and_expr:x                {: RESULT = x; :}
+             ;
+
+and_expr    ::= and_expr:a AND rel_expr:b {:
+                   boolean res = (a.val.doubleValue()!=0.0 && b.val.doubleValue()!=0.0);
+                   RESULT = new Sem.Eval(res?1.0:0.0, Sem.Type.BOOL, null, new AST.Binary("&&", a.aexpr, b.aexpr));
+                 :}
+             |  rel_expr:x                {: RESULT = x; :}
+             ;
+
+rel_expr    ::= add_expr:x                {: RESULT = x; :}
+             |  add_expr:a EQ add_expr:b  {: RESULT = new Sem.Eval(a.val.doubleValue()==b.val.doubleValue()?1.0:0.0, Sem.Type.BOOL, null, new AST.Binary("==", a.aexpr, b.aexpr)); :}
+             |  add_expr:a NE add_expr:b  {: RESULT = new Sem.Eval(a.val.doubleValue()!=b.val.doubleValue()?1.0:0.0, Sem.Type.BOOL, null, new AST.Binary("!=", a.aexpr, b.aexpr)); :}
+             |  add_expr:a LT add_expr:b  {: RESULT = new Sem.Eval(a.val.doubleValue()< b.val.doubleValue()?1.0:0.0,  Sem.Type.BOOL, null, new AST.Binary("<",  a.aexpr, b.aexpr)); :}
+             |  add_expr:a LE add_expr:b  {: RESULT = new Sem.Eval(a.val.doubleValue()<=b.val.doubleValue()?1.0:0.0, Sem.Type.BOOL, null, new AST.Binary("<=", a.aexpr, b.aexpr)); :}
+             |  add_expr:a GT add_expr:b  {: RESULT = new Sem.Eval(a.val.doubleValue()> b.val.doubleValue()?1.0:0.0,  Sem.Type.BOOL, null, new AST.Binary(">",  a.aexpr, b.aexpr)); :}
+             |  add_expr:a GE add_expr:b  {: RESULT = new Sem.Eval(a.val.doubleValue()>=b.val.doubleValue()?1.0:0.0, Sem.Type.BOOL, null, new AST.Binary(">=", a.aexpr, b.aexpr)); :}
+             ;
+
+add_expr    ::= add_expr:a PLUS  mul_expr:b {:
+                   double v = a.val.doubleValue() + b.val.doubleValue();
+                   Sem.Type t = Sem.promote(a.type, b.type);
+                   RESULT = new Sem.Eval(v, t, null, new AST.Binary("+", a.aexpr, b.aexpr));
+                 :}
+             |  add_expr:a MINUS mul_expr:b {:
+                   double v = a.val.doubleValue() - b.val.doubleValue();
+                   Sem.Type t = Sem.promote(a.type, b.type);
+                   RESULT = new Sem.Eval(v, t, null, new AST.Binary("-", a.aexpr, b.aexpr));
+                 :}
+             |  mul_expr:x                  {: RESULT = x; :}
+             ;
+
+mul_expr    ::= mul_expr:a STAR   unary:b   {:
+                   double v = a.val.doubleValue() * b.val.doubleValue();
+                   Sem.Type t = Sem.promote(a.type, b.type);
+                   RESULT = new Sem.Eval(v, t, null, new AST.Binary("*", a.aexpr, b.aexpr));
+                 :}
+             |  mul_expr:a SLASH  unary:b   {:
+                   double v = a.val.doubleValue() / b.val.doubleValue();
+                   RESULT = new Sem.Eval(v, Sem.promoteDiv(a.type, b.type), null, new AST.Binary("/", a.aexpr, b.aexpr));
+                 :}
+             |  mul_expr:a PERCENT unary:b  {:
+                   double v = a.val.doubleValue() % b.val.doubleValue();
+                   Sem.Type t = Sem.promote(a.type, b.type);
+                   RESULT = new Sem.Eval(v, t, null, new AST.Binary("%", a.aexpr, b.aexpr));
+                 :}
+             |  unary:x                      {: RESULT = x; :}
+             ;
+
+unary       ::= MINUS unary:x              {:
+                   RESULT = new Sem.Eval(-x.val.doubleValue(), (x.type==Sem.Type.DOUBLE?Sem.Type.DOUBLE:(x.type==Sem.Type.FLOAT?Sem.Type.FLOAT:Sem.Type.INT)), null, new AST.Unary("-", x.aexpr));
+                 :}
+             |  NOT   unary:x              {:
+                   RESULT = new Sem.Eval((x.val.doubleValue()==0.0)?1.0:0.0, Sem.Type.BOOL, null, new AST.Unary("!", x.aexpr));
+                 :}
+             |  factor:x                   {: RESULT = x; :}
+             ;
+
+factor      ::= LPAR expr:x RPAR           {: RESULT = x; :}
+             |  INT_LIT:i                  {: RESULT = new Sem.Eval(((Integer)i).doubleValue(), Sem.Type.INT,   null, new AST.IntLit(((Integer)i).longValue())); :}
+             |  FLOAT_LIT:f                {: RESULT = new Sem.Eval((Double)f,                Sem.Type.FLOAT,   null, new AST.FloatLit((Double)f)); :}
+             |  SCI_LIT:f                  {: RESULT = new Sem.Eval(Double.valueOf((String)f), Sem.Type.DOUBLE,  null, new AST.FloatLit(Double.valueOf((String)f))); :}
+             |  CHAR_LIT:c                 {: RESULT = new Sem.Eval((double)((Character)c).charValue(), Sem.Type.CHAR,   null, new AST.CharLit(((Character)c).charValue())); :}
+             |  STRING_LIT:s               {: RESULT = new Sem.Eval(0.0,                       Sem.Type.STRING, (String)s, new AST.StringLit((String)s)); :}
+             |  BOOL_LIT:b                 {: RESULT = new Sem.Eval(((Boolean)b)?1.0:0.0,     Sem.Type.BOOL,   null, new AST.BoolLit(((Boolean)b).booleanValue())); :}
+             |  ID:n LPAR RPAR             {:
+                  String nm=(String)n;
+                  System.out.println("CALL " + nm + "()");
+                  Sem.checkCallSignature(nm, new Sem.ArgSig(
+                        "", 0,
+                        java.util.Collections.<Sem.Type>emptyList(),
+                        java.util.Collections.<Double>emptyList(),
+                        java.util.Collections.<AST.Expr>emptyList()));
+                  RESULT = new Sem.Eval(0.0, Sem.Type.INT, null, new AST.Call(nm, java.util.Collections.<AST.Expr>emptyList()));
+                :}
+             |  ID:n LPAR arg_list_info:als RPAR {:
+                  String nm=(String)n;
+                  System.out.println("CALL " + nm + "(" + als.text + ")");
+                  Sem.checkCallSignature(nm, als);
+                  RESULT = new Sem.Eval(0.0, Sem.Type.INT, null, new AST.Call(nm, als.aexprs));
+                :}
+             |  ID:n                        {:
+                  String nm=(String)n;
+                  Sem.Type t = Sem.VT.lookup(nm);
+                  RESULT = new Sem.Eval(0.0, (t==Sem.Type.UNKNOWN?Sem.Type.INT:t), null, new AST.Id(nm));
+                :}
+             ;
