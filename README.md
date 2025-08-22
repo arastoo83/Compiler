@@ -64,28 +64,20 @@ jflex grammar/Lexer.jflex
 
 ### 2) تولید Parser با CUP
 ```bash
-java -jar java-cup-11b.jar -parser parser -symbols sym grammar/parser.cup
+java java_cup.MainDrawTree grammar/parser.cup
 # خروجی: parser.java و sym.java
 ```
 
 ### 3) کامپایل جاوا (به‌همراه CUP Runtime)
 # ویندوز (PowerShell/CMD):
 ```bat
-javac -cp .;java-cup-11b-runtime.jar src\*.java *.java
-```
-# لینوکس/مک:
-```bash
-javac -cp .:java-cup-11b-runtime.jar src/*.java *.java
+javac  src\*.java
 ```
 
 ### 4) اجرا
 # ویندوز:
 ```bat
-java -cp .;java-cup-11b-runtime.jar Main samples\input.txt
-```
-# لینوکس/مک:
-```bash
-java -cp .:java-cup-11b-runtime.jar Main samples/input.txt
+java Main samples\input.txt
 ```
 
 </div>
