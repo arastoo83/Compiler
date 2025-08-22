@@ -63,14 +63,9 @@ jflex grammar/Lexer.jflex
 ```
 
 ### 2) تولید Parser با CUP
-# روش با JAR:
 ```bash
 java -jar java-cup-11b.jar -parser parser -symbols sym grammar/parser.cup
 # خروجی: parser.java و sym.java
-```
-# یا اگر JAR در classpath است:
-```bash
-java -cp java-cup-11b.jar java_cup.Main -parser parser -symbols sym grammar/parser.cup
 ```
 
 ### 3) کامپایل جاوا (به‌همراه CUP Runtime)
