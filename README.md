@@ -41,10 +41,7 @@ java java_cup.MainDrawTree parser.cup grammar/parser.cup
 ```bat
 javac src\*.java
 ```
-لینوکس/مک:
-```bash
-javac -cp .:java-cup-11b-runtime.jar src/*.java *.java
-```
+
 
 ### 4) اجرا
 ```bash
